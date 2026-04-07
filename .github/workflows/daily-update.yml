@@ -39,8 +39,8 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "huskytech1"
+          git config user.email "huskytech1@users.noreply.github.com"
           git add site
           git commit -m "Update AI daily news"
           git push
