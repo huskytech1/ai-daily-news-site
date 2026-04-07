@@ -251,6 +251,7 @@ source_matrix = [
 
 results = []
 seen_keys = set()
+article_time_cache = {}
 
 
 def clean_html(raw_html):
@@ -378,6 +379,38 @@ def translate_text(text):
         return text
 
 
+def fetch_aibase_article_datetime(link, headers=None):
+    if link in article_time_cache:
+        return article_time_cache[link]
+
+    request_headers = headers or {"User-Agent": "Mozilla/5.0"}
+    try:
+        res = requests.get(link, headers=request_headers, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+        text = soup.get_text(" ", strip=True)
+        match = re.search(
+            r"发布时间\s*[:：]\s*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})[号日]\s*(\d{1,2}):(\d{2})",
+            text,
+        )
+        if match:
+            dt_bj = beijing_tz.localize(
+                datetime(
+                    int(match.group(1)),
+                    int(match.group(2)),
+                    int(match.group(3)),
+                    int(match.group(4)),
+                    int(match.group(5)),
+                )
+            )
+            article_time_cache[link] = dt_bj
+            return dt_bj
+    except Exception:
+        pass
+
+    article_time_cache[link] = None
+    return None
+
+
 def add_result(config, title, link, dt_bj, summary):
     normalized_title = re.sub(r"\s+", " ", title).strip()
     unique_key = (normalized_title.lower(), link)
@@ -479,6 +512,9 @@ def fetch_aibase(config):
                         dt_bj = beijing_tz.localize(
                             datetime.strptime(f"{now_bj.year}-{raw_time}", "%Y-%m-%d")
                         )
+            article_dt_bj = fetch_aibase_article_datetime(link, headers=headers)
+            if article_dt_bj is not None:
+                dt_bj = article_dt_bj
             add_result(config, title, link, dt_bj, summary)
     except Exception:
         pass
@@ -542,11 +578,12 @@ def build_html(categories):
         '                        <h1 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">AI 行业 24 小时日报</h1>',
         '                        <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">按主题并列整理过去 24 小时的 AI 动态，减少门户噪音，优先保留真正与模型、算力、具身智能和行业趋势相关的内容。</p>',
         "                    </div>",
-        '                    <div class="grid grid-cols-2 gap-3 sm:min-w-[280px]">',
+        '                    <div class="grid grid-cols-2 gap-3 sm:min-w-[320px]">',
         f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">日期</div><div class="mt-1 text-sm font-semibold">{now_bj.strftime("%Y年%m月%d日")}</div></div>',
         f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">新闻条数</div><div class="mt-1 text-sm font-semibold">{total_items} 条</div></div>',
         f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">分类数</div><div class="mt-1 text-sm font-semibold">{len(active_categories)} 类</div></div>',
         '                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">视图</div><div class="mt-1 text-sm font-semibold">分栏并列</div></div>',
+        f'                        <div class="col-span-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">上次刷新时间</div><div class="mt-1 text-sm font-semibold">{now_bj.strftime("%Y-%m-%d %H:%M")}</div></div>',
         "                    </div>",
         "                </div>",
         "            </div>",
