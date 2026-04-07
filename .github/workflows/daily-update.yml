@@ -32,6 +32,7 @@ jobs:
           python scripts/main.py
           latest_file=$(ls -t site/AI_Daily_News_*.html | head -n 1)
           cp "$latest_file" site/index.html
+          rm -f site/AI_Daily_News_*.html
 
       - name: Commit and push updates
         run: |
