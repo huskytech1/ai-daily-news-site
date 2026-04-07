@@ -526,6 +526,9 @@ def build_html(categories):
         "        .news-title, .summary-compact { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }",
         "        .news-title { -webkit-line-clamp: 2; }",
         "        .summary-compact { -webkit-line-clamp: 2; }",
+        "        .category-grid { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }",
+        "        @media (min-width: 768px) { .category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }",
+        "        @media (min-width: 1280px) { .category-grid { grid-template-columns: repeat(var(--category-count, 1), minmax(0, 1fr)); } }",
         "    </style>",
         "</head>",
         '<body class="antialiased">',
@@ -559,7 +562,7 @@ def build_html(categories):
         )
 
     html_parts.append(
-        '</div></nav><main id="news-container"><div class="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-5">'
+        f'</div></nav><main id="news-container"><div class="category-grid" style="--category-count: {len(active_categories)};">'
     )
 
     for cat_name, cat_data in active_categories:
