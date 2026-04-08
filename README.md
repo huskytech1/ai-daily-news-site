@@ -4,7 +4,7 @@
 
 ## 自动更新
 
-- GitHub Actions 在每个工作日北京时间 16:50 自动运行一次
+- GitHub Actions 在每个工作日北京时间 09:27 自动运行一次
 - 输出目录固定为 `site/`
 - `site/index.html` 始终是最新首页
 - `site/AI_Daily_News_YYYYMMDD.html` 保留日期归档
