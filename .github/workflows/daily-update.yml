@@ -2,9 +2,11 @@ name: Update AI Daily News
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "17 1 * * 1-5"
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -31,24 +33,13 @@ jobs:
       - name: Generate static site
         env:
           AI_DAILY_NEWS_OUTPUT_DIR: site
+          TZ: Asia/Shanghai
         run: |
           mkdir -p site
           python scripts/main.py
           latest_file=$(ls -t site/AI_Daily_News_*.html | head -n 1)
           cp "$latest_file" site/index.html
           rm -f site/AI_Daily_News_*.html
-
-      - name: Commit and push updates
-        run: |
-          if [ -z "$(git status --porcelain site)" ]; then
-            echo "No site changes to commit"
-          else
-            git config user.name "huskytech1"
-            git config user.email "huskytech1@users.noreply.github.com"
-            git add site
-            git commit -m "Update AI daily news"
-            git push
-          fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
