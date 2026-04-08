@@ -2,11 +2,15 @@ name: Update AI Daily News
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "8 8 * * 1-5"
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ai-daily-news-pages
+  cancel-in-progress: true
 
 jobs:
   update-news:
@@ -36,12 +40,34 @@ jobs:
 
       - name: Commit and push updates
         run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "No changes to commit"
-            exit 0
+          if [ -z "$(git status --porcelain site)" ]; then
+            echo "No site changes to commit"
+          else
+            git config user.name "huskytech1"
+            git config user.email "huskytech1@users.noreply.github.com"
+            git add site
+            git commit -m "Update AI daily news"
+            git push
           fi
-          git config user.name "huskytech1"
-          git config user.email "huskytech1@users.noreply.github.com"
-          git add site
-          git commit -m "Update AI daily news"
-          git push
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-pages:
+    needs: update-news
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
