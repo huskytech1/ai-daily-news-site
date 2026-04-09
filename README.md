@@ -4,11 +4,11 @@
 
 ## 自动更新
 
-- GitHub Actions 在每个工作日北京时间 09:27 自动运行一次
+- 本地 `launchd` 在每个工作日北京时间 09:00 触发一次 GitHub Actions 工作流
 - 输出目录固定为 `site/`
 - `site/index.html` 始终是最新首页
 - `site/AI_Daily_News_YYYYMMDD.html` 保留日期归档
-- 站点通过 GitHub Pages 部署，不再依赖本地定时器或 Netlify 回推
+- 站点通过 GitHub Pages 部署，不再依赖 Netlify 回推
 
 ## 本地运行
 
@@ -24,5 +24,6 @@ cp site/AI_Daily_News_*.html site/index.html
 
 - 主要抓取逻辑在 `scripts/main.py`
 - 定时任务在 `.github/workflows/daily-update.yml`
+- 本地触发脚本在 `~/my_project_area/projects/trigger-ai-daily-news.sh`
 - 输出站点在 `site/`
 - 线上部署地址为 `https://huskytech1.github.io/ai-daily-news-site/`
