@@ -4,7 +4,7 @@
 
 ## 自动更新
 
-- 本地 `launchd` 在每个工作日北京时间 09:00 触发一次 GitHub Actions 工作流
+- 本地 `launchd` 在每个工作日 `09:05` 到 `17:05` 每小时触发一次，共 9 次
 - 输出目录固定为 `site/`
 - `site/index.html` 始终是最新首页
 - `site/AI_Daily_News_YYYYMMDD.html` 保留日期归档
