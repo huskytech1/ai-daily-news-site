@@ -24,6 +24,6 @@ cp site/AI_Daily_News_*.html site/index.html
 
 - 主要抓取逻辑在 `scripts/main.py`
 - 定时任务在 `.github/workflows/daily-update.yml`
-- 本地触发脚本在 `~/my_project_area/projects/trigger-ai-daily-news.sh`
+- 本地触发脚本在 `~/my_project_area/projects/trigger-ai-daily-news-site-workflow.sh`
 - 输出站点在 `site/`
 - 线上部署地址为 `https://huskytech1.github.io/ai-daily-news-site/`

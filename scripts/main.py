@@ -4,6 +4,7 @@ import html
 import os
 import re
 import ssl
+import threading
 from datetime import datetime, timedelta
 
 import feedparser
@@ -252,6 +253,20 @@ source_matrix = [
 results = []
 seen_keys = set()
 article_time_cache = {}
+results_lock = threading.Lock()
+
+SOURCE_QUALITY_RANK = {
+    "机器之心": 6,
+    "AIbase": 5,
+    "TechCrunch AI": 5,
+    "VentureBeat AI": 5,
+    "AI News": 4,
+    "MarkTechPost": 4,
+    "IT之家": 3,
+    "36Kr AI": 3,
+    "The Verge": 3,
+    "Ars Technica": 3,
+}
 
 
 def clean_html(raw_html):
@@ -262,6 +277,24 @@ def clean_html(raw_html):
 
 def normalize_text(*parts):
     return " ".join(part for part in parts if part).lower()
+
+
+def normalize_similarity_text(text):
+    text = normalize_text(text)
+    text = re.sub(r"[^\w\u4e00-\u9fff]", "", text)
+    return text
+
+
+def extract_similarity_tokens(text):
+    normalized = normalize_similarity_text(text)
+    english_tokens = set(re.findall(r"[a-z0-9]{3,}", normalized))
+    chinese_text = "".join(re.findall(r"[\u4e00-\u9fff]", normalized))
+    chinese_tokens = {
+        chinese_text[idx : idx + 2]
+        for idx in range(max(len(chinese_text) - 1, 0))
+        if len(chinese_text[idx : idx + 2]) == 2
+    }
+    return english_tokens | chinese_tokens
 
 
 def keyword_matches(text, keyword):
@@ -372,6 +405,47 @@ def summarize_text(summary, limit=100):
     return trimmed + "..."
 
 
+def pick_better_story(candidate, existing):
+    candidate_quality = (
+        candidate["ai_score"],
+        candidate["explicit_signals"],
+        len(candidate["summary"]),
+        SOURCE_QUALITY_RANK.get(candidate["source"], 0),
+        candidate["timestamp"],
+    )
+    existing_quality = (
+        existing["ai_score"],
+        existing["explicit_signals"],
+        len(existing["summary"]),
+        SOURCE_QUALITY_RANK.get(existing["source"], 0),
+        existing["timestamp"],
+    )
+    return candidate if candidate_quality > existing_quality else existing
+
+
+def are_similar_stories(candidate, existing):
+    if candidate["link"] == existing["link"]:
+        return True
+
+    candidate_title = candidate["dedup_title"]
+    existing_title = existing["dedup_title"]
+    if candidate_title == existing_title:
+        return True
+
+    min_len = min(len(candidate_title), len(existing_title))
+    if min_len >= 12 and (
+        candidate_title in existing_title or existing_title in candidate_title
+    ):
+        return True
+
+    overlap = candidate["dedup_tokens"] & existing["dedup_tokens"]
+    union = candidate["dedup_tokens"] | existing["dedup_tokens"]
+    if len(overlap) < 3 or not union:
+        return False
+
+    return len(overlap) / len(union) >= 0.6
+
+
 def translate_text(text):
     try:
         return translator.translate(text)
@@ -414,8 +488,6 @@ def fetch_aibase_article_datetime(link, headers=None):
 def add_result(config, title, link, dt_bj, summary):
     normalized_title = re.sub(r"\s+", " ", title).strip()
     unique_key = (normalized_title.lower(), link)
-    if unique_key in seen_keys:
-        return
     if not is_pure_ai_news(
         title,
         summary,
@@ -427,25 +499,43 @@ def add_result(config, title, link, dt_bj, summary):
     if dt_bj < cutoff or dt_bj > now_bj + timedelta(hours=2):
         return
 
-    seen_keys.add(unique_key)
+    cleaned_summary = clean_html(summary)
+    ai_score = ai_relevance_score(title, cleaned_summary)
+    explicit_signals = explicit_ai_signal_count(title, cleaned_summary)
     display_title = normalized_title
-    display_summary = summarize_text(summary)
+    display_summary = summarize_text(cleaned_summary)
     if config["lang"] == "en":
         display_title = translate_text(display_title)
         if display_summary:
             display_summary = summarize_text(translate_text(display_summary), limit=100)
 
-    results.append(
-        {
-            "source": config["name"],
-            "title": display_title,
-            "original_title": normalized_title if config["lang"] == "en" else "",
-            "link": link,
-            "time": dt_bj.strftime("%Y-%m-%d %H:%M"),
-            "timestamp": dt_bj.timestamp(),
-            "summary": display_summary,
-        }
-    )
+    candidate = {
+        "source": config["name"],
+        "title": display_title,
+        "original_title": normalized_title if config["lang"] == "en" else "",
+        "link": link,
+        "time": dt_bj.strftime("%Y-%m-%d %H:%M"),
+        "timestamp": dt_bj.timestamp(),
+        "summary": display_summary,
+        "ai_score": ai_score,
+        "explicit_signals": explicit_signals,
+        "dedup_title": normalize_similarity_text(normalized_title),
+        "dedup_tokens": extract_similarity_tokens(normalized_title),
+    }
+
+    with results_lock:
+        if unique_key in seen_keys:
+            return
+
+        for index, existing in enumerate(results):
+            if are_similar_stories(candidate, existing):
+                better_story = pick_better_story(candidate, existing)
+                results[index] = better_story
+                seen_keys.add((better_story["dedup_title"], better_story["link"]))
+                return
+
+        seen_keys.add(unique_key)
+        results.append(candidate)
 
 
 def fetch_rss(config):
