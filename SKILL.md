@@ -1,6 +1,6 @@
 ---
 name: ai-news-daily
-version: 1.0.1
+version: 1.0.2
 description: 专门用于聚合全球最新 AI 行业资讯并生成【AI 日报】。生成完成后，会自动打开生成的 HTML 日报网页。当用户提到以下任何关键词时自动触发：AI 日报、AI 新闻、今日 AI、AI 动态、行业简报、AI 资讯、看看 AI、AI 行业动态、AI 简讯。本技能抓取外部媒体新闻，与总结个人工作历史的 daily-review 完全不是同一回事。
 github_url: https://github.com/huskytech1/ai-daily-news
 github_hash: 3589ef71990af8a78bd3f9d9f9d111ce0fbf6276
