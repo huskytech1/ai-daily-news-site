@@ -19,9 +19,10 @@ beijing_tz = pytz.timezone("Asia/Shanghai")
 now_bj = datetime.now(beijing_tz)
 cutoff = now_bj - timedelta(hours=24)
 translator = GoogleTranslator(source="auto", target="zh-CN")
+SITE_VERSION = "1.0.3"
 
 DEFAULT_OUTPUT_DIR = os.path.join(
-    os.path.expanduser("~"), "my_project_area", "documents", "ai-daily-news"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "site"
 )
 MAX_ITEMS_PER_CATEGORY = 20
 
@@ -623,6 +624,64 @@ def classify_item(item):
     return "综合前沿资讯"
 
 
+def score_video_topic(item):
+    content = normalize_text(item["title"], item["summary"], item["original_title"])
+    score = 45
+    if has_any(content, {"对标", "瞄准", "争议", "冲突", "起诉", "指控", "封禁", "叫板", "威胁"}):
+        score += 20
+    if has_any(content, {"openai", "google", "anthropic", "microsoft", "meta", "nvidia", "chatgpt", "gemini", "claude", "deepseek"}):
+        score += 15
+    if has_any(content, {"发布", "推出", "上线", "升级", "模型", "codex", "agent", "芯片", "眼镜", "机器人", "用户", "融资", "收购"}):
+        score += 12
+    if has_any(content, {"全球", "10亿", "百亿", "用户", "周活跃", "女性", "工作", "电影", "浏览器", "照片"}):
+        score += 10
+    if has_any(content, {"财报", "估值", "ipo", "监管", "法案", "法规"}):
+        score += 8
+    if len(item["summary"]) >= 80:
+        score += 5
+    return min(score, 100)
+
+
+def video_star_rating(score):
+    if score >= 90:
+        return "★★★★★"
+    if score >= 80:
+        return "★★★★☆"
+    if score >= 70:
+        return "★★★☆☆"
+    if score >= 60:
+        return "★★☆☆☆"
+    return "★☆☆☆☆"
+
+
+def video_reason(item):
+    content = normalize_text(item["title"], item["summary"], item["original_title"])
+    if has_any(content, {"瞄准", "争议", "起诉", "指控", "威胁", "对标"}):
+        return "冲突感强"
+    if has_any(content, {"10亿", "全球", "周活跃", "百亿", "用户"}):
+        return "大众感知强"
+    if has_any(content, {"融资", "收购", "估值", "ipo"}):
+        return "资本话题强"
+    if has_any(content, {"眼镜", "机器人", "照片", "电影", "浏览器"}):
+        return "画面感强"
+    if has_any(content, {"发布", "推出", "升级", "模型", "codex", "agent"}):
+        return "产品爆点强"
+    return "讨论空间大"
+
+
+def video_direction(item):
+    content = normalize_text(item["title"], item["summary"], item["original_title"])
+    if has_any(content, {"瞄准", "争议", "起诉", "指控", "对标"}):
+        return "冲突解读"
+    if has_any(content, {"融资", "收购", "估值", "ipo", "监管"}):
+        return "趋势拆解"
+    if has_any(content, {"眼镜", "机器人", "照片", "电影"}):
+        return "画面切入"
+    if has_any(content, {"用户", "全球", "周活跃", "工作"}):
+        return "大众影响"
+    return "产品解读"
+
+
 def build_html(categories):
     total_items = sum(len(cat_data["items"]) for cat_data in categories.values())
     active_categories = [
@@ -630,6 +689,32 @@ def build_html(categories):
         for cat_name, cat_data in categories.items()
         if cat_data["items"]
     ]
+    all_items = []
+    for _, cat_data in active_categories:
+        all_items.extend(cat_data["items"])
+    video_candidates = []
+    for item in all_items:
+        score = score_video_topic(item)
+        video_candidates.append(
+            {
+                "title": item["title"],
+                "source": item["source"],
+                "link": item["link"],
+                "score": score,
+                "stars": video_star_rating(score),
+                "reason": video_reason(item),
+                "direction": video_direction(item),
+            }
+        )
+    video_candidates.sort(key=lambda item: (item["score"], item["title"]), reverse=True)
+    top_video_topics = video_candidates[:5]
+    category_labels = {
+        "大模型与前沿技术": "大模型与前沿",
+        "AI算力与硬件芯片": "AI算力与芯片",
+        "具身智能与智能终端": "具身智能与终端",
+        "政策风向与投融资": "政策与投融资",
+        "综合前沿资讯": "综合资讯",
+    }
 
     html_parts = [
         "<!DOCTYPE html>",
@@ -637,103 +722,83 @@ def build_html(categories):
         "<head>",
         '    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">',
         "    <title>AI 行业 24 小时精选快讯</title>",
-        '    <script src="https://cdn.tailwindcss.com"></script>',
         "    <style>",
-        "        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');",
-        "        html { scroll-behavior: smooth; }",
-        "        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: radial-gradient(circle at top, #eff6ff 0%, #f8fafc 32%, #eef2ff 100%); color: #0f172a; }",
-        "        .news-card { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }",
-        "        .news-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -24px rgba(15, 23, 42, 0.35); border-color: rgba(59, 130, 246, 0.28); }",
-        "        .hide-scrollbar::-webkit-scrollbar { display: none; }",
-        "        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }",
-        "        .en-subtitle { color: #64748b; font-size: 0.75rem; margin-top: 2px; }",
-        "        .glass-panel { background: rgba(255, 255, 255, 0.78); backdrop-filter: blur(14px); }",
-        "        .section-anchor { scroll-margin-top: 96px; }",
-        "        .news-title, .summary-compact { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }",
-        "        .news-title { -webkit-line-clamp: 2; }",
-        "        .summary-compact { -webkit-line-clamp: 2; }",
-        "        .category-grid { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }",
-        "        @media (min-width: 768px) { .category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }",
-        "        @media (min-width: 1280px) { .category-grid { grid-template-columns: repeat(var(--category-count, 1), minmax(0, 1fr)); } }",
+        "        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Nunito:wght@600;700;800&family=Noto+Sans+SC:wght@400;500;700;800&display=swap');",
+        "        :root{--mint:#19c8b9;--mint-soft:#e6f9f6;--soil:#794f27;--soil-soft:#9f927d;--paper:#fbfaf4;--panel:#f8f8f0;--panel-deep:#f0e8d8;--line:#c4b89e;--line-strong:#a89878;--shadow:0 4px 0 rgba(196,184,158,.98);--shadow-soft:0 18px 40px -28px rgba(61,52,40,.22);--radius-pill:999px;--content-max-width:1900px}",
+        "        *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:'Noto Sans SC','M PLUS Rounded 1c',sans-serif;color:var(--soil);background:radial-gradient(circle at top, rgba(245,195,28,.16), transparent 24%),radial-gradient(circle at left 14%, rgba(111,186,44,.12), transparent 20%),linear-gradient(180deg,#f8f8f0 0%,#f5f1e6 38%,#f3eedf 100%)} body::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:radial-gradient(rgba(121,79,39,.11) 1px,transparent 1px);background-size:18px 18px}",
+        "        .page-shell{position:relative;width:min(100%,var(--content-max-width));margin:0 auto;padding:24px 20px 40px} .hero-panel,.score-panel,.nav-shell,.cat-panel,.footer-panel{position:relative;background:rgba(251,250,244,.96);border:3px solid var(--line);box-shadow:var(--shadow),var(--shadow-soft)}",
+        "        .hero-panel{overflow:hidden;padding:10px 18px 10px;border-radius:28px 28px 22px 22px / 22px 22px 24px 24px}.hero-panel::before{content:'';position:absolute;width:150px;height:150px;right:-48px;top:-80px;border-radius:48% 52% 44% 56%;background:radial-gradient(circle, rgba(25,200,185,.12) 0%, rgba(25,200,185,0) 74%)}.hero-panel::after{content:'';position:absolute;width:100px;height:100px;left:-30px;bottom:-48px;border-radius:50%;background:radial-gradient(circle, rgba(245,195,28,.08) 0%, rgba(245,195,28,0) 74%)}",
+        "        .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(330px,.8fr);gap:16px;align-items:center}.hero-main{display:flex;align-items:center;min-width:0}.hero-title{margin:0;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:clamp(1.15rem,2.2vw,1.45rem);line-height:1.1;letter-spacing:-.02em;color:var(--soil);white-space:nowrap}.hero-copy{margin:0 0 0 12px;max-width:none;font-size:.82rem;line-height:1.35;color:var(--soil-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+        "        .stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stat-card{padding:8px 12px 7px;border-radius:18px;border:2px solid var(--line);background:linear-gradient(180deg, rgba(248,248,240,.98), rgba(240,232,216,.94));box-shadow:0 3px 0 rgba(196,184,158,.98);min-height:64px}.stat-label{font-size:.68rem;color:var(--soil-soft)}.stat-value{margin-top:4px;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:.8rem;font-weight:800;color:var(--soil);line-height:1.3}.hero-divider{position:relative;z-index:1;margin-top:10px;height:10px;border-radius:999px;background:repeating-linear-gradient(90deg, rgba(196,184,158,.72) 0 8px, rgba(240,232,216,.95) 8px 16px)}",
+        "        .score-panel{margin:16px 0;padding:16px;border-radius:28px;background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(240,232,216,.92))}.score-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px dashed rgba(164,143,114,.28)}.score-title{margin:0;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:1rem;color:var(--soil)}.score-note{font-size:.82rem;color:var(--soil-soft)}.score-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}",
+        "        .topic-card{padding:14px;border-radius:22px;border:2px solid rgba(196,184,158,.92);background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(248,248,240,.98));box-shadow:0 3px 0 rgba(196,184,158,.98)}.topic-rank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:12px;background:linear-gradient(180deg,#fff3bf,#f7d768);border:2px solid rgba(164,143,114,.52);font-family:'Nunito',sans-serif;font-weight:800;color:var(--soil);box-shadow:0 3px 0 rgba(219,169,14,.45)}.source-pill{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:var(--mint-soft);border:2px solid rgba(25,200,185,.18);font-size:.75rem;font-weight:800;color:#158879}.topic-stars{margin-top:10px;font-size:.92rem;font-weight:800;color:#5f962e;letter-spacing:.05em}.topic-title{margin:10px 0 0;font-size:.95rem;line-height:1.55;font-weight:800;color:var(--soil);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.topic-title a{text-decoration:none;color:inherit}.topic-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.topic-chip{padding:8px 10px;border-radius:16px;background:rgba(122,83,48,.06);border:1px solid rgba(196,184,158,.88)}.chip-label{font-size:.68rem;color:var(--soil-soft)}.chip-value{margin-top:4px;font-size:.82rem;font-weight:800;color:var(--soil)}",
+        "        .nav-shell{position:sticky;top:10px;z-index:20;margin:18px 0 26px;padding:12px;border-radius:28px;overflow-x:auto;background:rgba(248,248,240,.96)}.nav-shell::-webkit-scrollbar{display:none}.nav-shell{-ms-overflow-style:none;scrollbar-width:none}.nav-track{display:flex;gap:10px;flex-wrap:nowrap;min-width:max-content}.cat-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:2px solid var(--line);border-radius:var(--radius-pill);background:var(--paper);color:var(--soil-soft);font-family:'Nunito','Noto Sans SC',sans-serif;font-size:.92rem;font-weight:800;cursor:pointer;box-shadow:0 3px 0 rgba(196,184,158,.98);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease,color .18s ease;white-space:nowrap}.cat-btn:hover{transform:translateY(-1px);border-color:var(--line-strong);box-shadow:0 4px 0 rgba(164,143,114,.95)}.cat-btn.is-active{color:var(--soil);border-color:rgba(25,200,185,.32);background:linear-gradient(180deg,var(--mint-soft),#f7fffd);box-shadow:0 4px 0 rgba(25,200,185,.38)}.cat-count{display:inline-flex;min-width:28px;height:28px;align-items:center;justify-content:center;padding:0 8px;border-radius:999px;background:rgba(122,83,48,.08);color:var(--soil);font-size:.76rem}",
+        "        .category-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));align-items:start}.cat-panel{padding:16px;border-radius:30px;scroll-margin-top:104px;background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(240,232,216,.9))}.section-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:2px dashed rgba(164,143,114,.28)}.section-icon{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:18px;background:linear-gradient(180deg,#fff7df,#f5deb7);border:2px solid var(--line);box-shadow:0 3px 0 rgba(205,187,159,.95);font-size:1.35rem}.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title{margin:0;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:1.1rem;line-height:1.2;color:var(--soil)}.section-subtitle{margin-top:4px;font-size:.82rem;color:var(--soil-soft)}.section-count{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:32px;padding:0 10px;border-radius:999px;background:rgba(111,186,44,.14);border:2px solid rgba(111,186,44,.14);font-size:.8rem;font-weight:800;color:#5f962e}",
+        "        .news-list{display:flex;flex-direction:column;gap:12px}.news-card{display:flex;gap:12px;padding:14px;border-radius:22px;border:2px solid rgba(196,184,158,.92);background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(248,248,240,.98));box-shadow:0 3px 0 rgba(196,184,158,.98);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;min-width:0}.news-card:hover{transform:translateY(-2px);border-color:rgba(25,200,185,.38);box-shadow:0 4px 0 rgba(25,200,185,.34),0 18px 32px -26px rgba(122,83,48,.38)}.news-rank{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border-radius:16px;background:linear-gradient(180deg,#fff3bf,#f7d768);border:2px solid rgba(164,143,114,.52);font-family:'Nunito',sans-serif;font-weight:800;color:var(--soil);box-shadow:0 3px 0 rgba(219,169,14,.45)}.news-body{min-width:0;flex:1}.meta-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.time-stamp{font-size:.78rem;color:var(--soil-soft)}.news-title{margin:10px 0 0;font-size:1rem;line-height:1.55;font-weight:800;color:var(--soil);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.news-title a{text-decoration:none;color:inherit}.en-subtitle{margin-top:6px;font-size:.75rem;color:var(--soil-soft);font-family:'M PLUS Rounded 1c',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.summary-compact{margin:8px 0 0;font-size:.86rem;line-height:1.7;color:#82664a;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.footer-panel{margin-top:28px;padding:18px 20px;border-radius:28px;text-align:center;color:var(--soil-soft);font-size:.88rem}.hidden-section{display:none!important}",
+        "        @media (max-width:1200px){.score-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero-copy{white-space:normal}} @media (max-width:980px){.hero-grid{grid-template-columns:1fr}.hero-main{align-items:flex-start;flex-direction:column;gap:6px}.hero-copy{margin-left:0}.stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.score-grid{grid-template-columns:1fr}.hero-copy{white-space:normal}} @media (max-width:640px){.page-shell{padding-inline:12px}.stats-grid{grid-template-columns:1fr}.hero-panel{padding:12px}.hero-title{font-size:1.05rem}.hero-copy{font-size:.78rem}.news-card{padding:12px}.section-icon{width:46px;height:46px}.stat-card{min-height:unset}.topic-meta{grid-template-columns:1fr}}",
         "    </style>",
         "</head>",
-        '<body class="antialiased">',
-        '    <div class="mx-auto max-w-[1960px] px-3 py-8 lg:px-5">',
-        '        <header class="relative overflow-hidden rounded-[28px] border border-white/70 bg-slate-950 px-6 py-8 text-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.8)] sm:px-8 lg:px-10">',
-        '            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(96,165,250,0.35),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(129,140,248,0.28),_transparent_35%)]"></div>',
-        '            <div class="relative">',
-        '                <div class="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between">',
-        '                    <div class="flex max-w-3xl flex-col justify-center">',
-        '                        <div class="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-slate-200">AI Daily News</div>',
-        '                        <h1 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">AI 行业 24 小时日报</h1>',
-        '                        <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">按主题并列整理过去 24 小时的 AI 动态，减少门户噪音，优先保留真正与模型、算力、具身智能和行业趋势相关的内容。</p>',
-        "                    </div>",
-        '                    <div class="grid grid-cols-2 gap-3 sm:min-w-[320px]">',
-        f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">日期</div><div class="mt-1 text-sm font-semibold">{now_bj.strftime("%Y年%m月%d日")}</div></div>',
-        f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">新闻条数</div><div class="mt-1 text-sm font-semibold">{total_items} 条</div></div>',
-        f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">分类数</div><div class="mt-1 text-sm font-semibold">{len(active_categories)} 类</div></div>',
-        f'                        <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"><div class="text-xs text-slate-300">上次刷新时间</div><div class="mt-1 text-sm font-semibold">{now_bj.strftime("%Y-%m-%d %H:%M")}</div></div>',
-        "                    </div>",
-        "                </div>",
-        "            </div>",
-        "        </header>",
-        '        <nav class="sticky top-0 z-50 mt-6 mb-8 overflow-x-auto rounded-2xl border border-white/70 glass-panel px-3 py-3 shadow-sm hide-scrollbar">',
-        '            <div class="flex min-w-max items-center gap-2">',
-        '                <button onclick="filterCategory(\'all\', this)" class="cat-btn active rounded-full border border-transparent bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all whitespace-nowrap">全部分类</button>',
+        "<body>",
+        '    <div class="page-shell">',
+        '        <header class="hero-panel"><div class="hero-grid"><div class="hero-main"><h1 class="hero-title">AI 日报</h1><p class="hero-copy">过去 24 小时 AI 动态按主题整理，优先保留模型、算力、具身智能与行业趋势相关事件。</p></div><div class="stats-grid">',
+        f'                    <div class="stat-card"><div class="stat-label">日期</div><div class="stat-value">{now_bj.strftime("%Y年%m月%d日")}</div></div>',
+        f'                    <div class="stat-card"><div class="stat-label">新闻条数</div><div class="stat-value">{total_items} 条</div></div>',
+        f'                    <div class="stat-card"><div class="stat-label">刷新时间</div><div class="stat-value">{now_bj.strftime("%Y-%m-%d %H:%M")}</div></div>',
+        "                </div></div><div class=\"hero-divider\"></div></header>",
+        '        <section class="score-panel"><div class="score-head"><h2 class="score-title">短视频选题评分</h2><div class="score-note">按爆款潜力从高到低</div></div><div class="score-grid">',
     ]
 
-    for cat_name, cat_data in active_categories:
+    for idx, topic in enumerate(top_video_topics, 1):
         html_parts.append(
-            f'<button onclick="filterCategory(\'{cat_data["id"]}\', this)" class="cat-btn rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition-all whitespace-nowrap hover:border-slate-300 hover:bg-slate-50">{cat_data["icon"]} {cat_name} <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{len(cat_data["items"])} </span></button>'
+            f'<article class="topic-card"><div class="meta-row"><span class="topic-rank">{idx}</span><span class="source-pill">{html.escape(topic["source"])}</span></div><div class="topic-stars">{topic["stars"]}</div><h3 class="topic-title"><a href="{html.escape(topic["link"])}" target="_blank" rel="noopener noreferrer">{html.escape(topic["title"])}</a></h3><div class="topic-meta"><div class="topic-chip"><div class="chip-label">理由</div><div class="chip-value">{html.escape(topic["reason"])}</div></div><div class="topic-chip"><div class="chip-label">建议方向</div><div class="chip-value">{html.escape(topic["direction"])}</div></div></div></article>'
         )
 
-    html_parts.append(
-        f'</div></nav><main id="news-container"><div class="category-grid" style="--category-count: {len(active_categories)};">'
+    html_parts.extend(
+        [
+            '</div></section>',
+            '        <nav class="nav-shell"><div class="nav-track"><button onclick="filterCategory(\'all\', this)" class="cat-btn is-active">全部分类 <span class="cat-count">ALL</span></button>',
+        ]
     )
 
     for cat_name, cat_data in active_categories:
+        html_parts.append(
+            f'<button onclick="filterCategory(\'{cat_data["id"]}\', this)" class="cat-btn">{cat_data["icon"]} {html.escape(category_labels.get(cat_name, cat_name))} <span class="cat-count">{len(cat_data["items"])}</span></button>'
+        )
+
+    html_parts.append('</div></nav><main id="news-container"><div class="category-grid">')
+
+    for cat_name, cat_data in active_categories:
         items = cat_data["items"]
-        html_parts.append(
-            f'<section id="{cat_data["id"]}" class="cat-section section-anchor flex h-full flex-col rounded-[24px] border border-white/70 glass-panel p-4 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.65)]">'
-        )
-        html_parts.append(
-            f'<div class="mb-4 flex items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-lg text-white shadow-sm">{cat_data["icon"]}</span><div class="min-w-0 flex-1"><div class="flex items-center justify-between gap-2"><h2 class="truncate text-lg font-semibold tracking-tight text-slate-900">{cat_name}</h2><span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{len(items)} 条</span></div><p class="mt-1 text-xs text-slate-500">精选动态</p></div></div>'
-        )
-        html_parts.append('<div class="flex flex-1 flex-col gap-3">')
+        html_parts.append(f'<section id="{cat_data["id"]}" class="cat-section cat-panel">')
+        html_parts.append(f'<div class="section-head"><span class="section-icon">{cat_data["icon"]}</span><div class="news-body"><div class="section-title-row"><h2 class="section-title">{cat_name}</h2><span class="section-count">{len(items)} 条</span></div><div class="section-subtitle">精选动态</div></div></div><div class="news-list">')
         for idx, item in enumerate(items, 1):
             summary = item["summary"]
             if summary.startswith("IT之家"):
                 summary = summary.split("消息，", 1)[-1].strip()
             subtitle_html = (
-                f'<div class="en-subtitle font-mono truncate">{html.escape(item["original_title"])} </div>'
+                f'<div class="en-subtitle">{html.escape(item["original_title"])} </div>'
                 if item.get("original_title")
                 else ""
             )
             html_parts.append(
-                f'<article class="news-card rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm"><div class="flex items-start gap-3"><div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-700">{idx}</div><div class="flex min-w-0 flex-1 flex-col"><div class="flex items-center justify-between gap-2 text-[11px]"><span class="truncate rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">{html.escape(item["source"])} </span><time class="shrink-0 text-slate-400">{html.escape(item["time"])} </time></div><h3 class="news-title mt-3 text-[16px] font-semibold leading-6 text-slate-900"><a href="{html.escape(item["link"])}" target="_blank" class="transition-colors hover:text-blue-600">{html.escape(item["title"])} </a></h3>{subtitle_html}<p class="summary-compact mt-2 text-[13px] leading-5 text-slate-600">{html.escape(summary)}</p></div></div></article>'
+                f'<article class="news-card"><div class="news-rank">{idx}</div><div class="news-body"><div class="meta-row"><span class="source-pill">{html.escape(item["source"])}</span><time class="time-stamp">{html.escape(item["time"])}</time></div><h3 class="news-title"><a href="{html.escape(item["link"])}" target="_blank" rel="noopener noreferrer">{html.escape(item["title"])}</a></h3>{subtitle_html}<p class="summary-compact">{html.escape(summary)}</p></div></article>'
             )
         html_parts.append("</div></section>")
 
     html_parts.extend(
         [
             "</div></main>",
-            '        <footer class="mt-10 rounded-3xl border border-white/70 glass-panel px-6 py-5 text-center text-sm text-slate-500 shadow-sm">由 Claude (AI News Skill) 自动化聚合生成 · 按主题分栏展示 · 海外资讯双语翻译</footer>',
+            f'        <footer class="footer-panel">v{SITE_VERSION}</footer>',
             "    </div>",
             "    <script>",
             "        function filterCategory(catId, btnElement) {",
-            "            document.querySelectorAll('.cat-btn').forEach(btn => {",
-            "                btn.classList.remove('bg-slate-950', 'text-white', 'border-transparent', 'font-semibold');",
-            "                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200', 'font-medium');",
-            "            });",
-            "            btnElement.classList.remove('bg-white', 'text-slate-600', 'border-slate-200', 'font-medium');",
-            "            btnElement.classList.add('bg-slate-950', 'text-white', 'border-transparent', 'font-semibold');",
+            "            document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('is-active'));",
+            "            btnElement.classList.add('is-active');",
             "            document.querySelectorAll('.cat-section').forEach(sec => {",
             "                if (catId === 'all' || sec.id === catId) {",
-            "                    sec.style.display = 'flex';",
-            "                    sec.style.opacity = '0';",
-            "                    setTimeout(() => { sec.style.transition = 'opacity 0.3s ease'; sec.style.opacity = '1'; }, 10);",
+            "                    sec.classList.remove('hidden-section');",
             "                } else {",
-            "                    sec.style.display = 'none';",
+            "                    sec.classList.add('hidden-section');",
             "                }",
             "            });",
             "            if (catId !== 'all') { document.getElementById(catId).scrollIntoView({ behavior: 'smooth', block: 'start' }); }",
