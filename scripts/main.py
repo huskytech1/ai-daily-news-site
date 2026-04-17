@@ -627,13 +627,61 @@ def classify_item(item):
 def score_video_topic(item):
     content = normalize_text(item["title"], item["summary"], item["original_title"])
     score = 45
-    if has_any(content, {"对标", "瞄准", "争议", "冲突", "起诉", "指控", "封禁", "叫板", "威胁"}):
+    if has_any(
+        content,
+        {"对标", "瞄准", "争议", "冲突", "起诉", "指控", "封禁", "叫板", "威胁"},
+    ):
         score += 20
-    if has_any(content, {"openai", "google", "anthropic", "microsoft", "meta", "nvidia", "chatgpt", "gemini", "claude", "deepseek"}):
+    if has_any(
+        content,
+        {
+            "openai",
+            "google",
+            "anthropic",
+            "microsoft",
+            "meta",
+            "nvidia",
+            "chatgpt",
+            "gemini",
+            "claude",
+            "deepseek",
+        },
+    ):
         score += 15
-    if has_any(content, {"发布", "推出", "上线", "升级", "模型", "codex", "agent", "芯片", "眼镜", "机器人", "用户", "融资", "收购"}):
+    if has_any(
+        content,
+        {
+            "发布",
+            "推出",
+            "上线",
+            "升级",
+            "模型",
+            "codex",
+            "agent",
+            "芯片",
+            "眼镜",
+            "机器人",
+            "用户",
+            "融资",
+            "收购",
+        },
+    ):
         score += 12
-    if has_any(content, {"全球", "10亿", "百亿", "用户", "周活跃", "女性", "工作", "电影", "浏览器", "照片"}):
+    if has_any(
+        content,
+        {
+            "全球",
+            "10亿",
+            "百亿",
+            "用户",
+            "周活跃",
+            "女性",
+            "工作",
+            "电影",
+            "浏览器",
+            "照片",
+        },
+    ):
         score += 10
     if has_any(content, {"财报", "估值", "ipo", "监管", "法案", "法规"}):
         score += 8
@@ -733,7 +781,7 @@ def build_html(categories):
         "        .score-panel{margin:16px 0;padding:16px;border-radius:28px;background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(240,232,216,.92))}.score-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px dashed rgba(164,143,114,.28)}.score-title{margin:0;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:1rem;color:var(--soil)}.score-note{font-size:.82rem;color:var(--soil-soft)}.score-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}",
         "        .topic-card{padding:14px;border-radius:22px;border:2px solid rgba(196,184,158,.92);background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(248,248,240,.98));box-shadow:0 3px 0 rgba(196,184,158,.98)}.topic-rank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:12px;background:linear-gradient(180deg,#fff3bf,#f7d768);border:2px solid rgba(164,143,114,.52);font-family:'Nunito',sans-serif;font-weight:800;color:var(--soil);box-shadow:0 3px 0 rgba(219,169,14,.45)}.source-pill{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:var(--mint-soft);border:2px solid rgba(25,200,185,.18);font-size:.75rem;font-weight:800;color:#158879}.topic-stars{margin-top:10px;font-size:.92rem;font-weight:800;color:#5f962e;letter-spacing:.05em}.topic-title{margin:10px 0 0;font-size:.95rem;line-height:1.55;font-weight:800;color:var(--soil);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.topic-title a{text-decoration:none;color:inherit}.topic-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.topic-chip{padding:8px 10px;border-radius:16px;background:rgba(122,83,48,.06);border:1px solid rgba(196,184,158,.88)}.chip-label{font-size:.68rem;color:var(--soil-soft)}.chip-value{margin-top:4px;font-size:.82rem;font-weight:800;color:var(--soil)}",
         "        .nav-shell{position:sticky;top:10px;z-index:20;margin:18px 0 26px;padding:12px;border-radius:28px;overflow-x:auto;background:rgba(248,248,240,.96)}.nav-shell::-webkit-scrollbar{display:none}.nav-shell{-ms-overflow-style:none;scrollbar-width:none}.nav-track{display:flex;gap:10px;flex-wrap:nowrap;min-width:max-content}.cat-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:2px solid var(--line);border-radius:var(--radius-pill);background:var(--paper);color:var(--soil-soft);font-family:'Nunito','Noto Sans SC',sans-serif;font-size:.92rem;font-weight:800;cursor:pointer;box-shadow:0 3px 0 rgba(196,184,158,.98);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease,color .18s ease;white-space:nowrap}.cat-btn:hover{transform:translateY(-1px);border-color:var(--line-strong);box-shadow:0 4px 0 rgba(164,143,114,.95)}.cat-btn.is-active{color:var(--soil);border-color:rgba(25,200,185,.32);background:linear-gradient(180deg,var(--mint-soft),#f7fffd);box-shadow:0 4px 0 rgba(25,200,185,.38)}.cat-count{display:inline-flex;min-width:28px;height:28px;align-items:center;justify-content:center;padding:0 8px;border-radius:999px;background:rgba(122,83,48,.08);color:var(--soil);font-size:.76rem}",
-        "        .category-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));align-items:start}.cat-panel{padding:16px;border-radius:30px;scroll-margin-top:104px;background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(240,232,216,.9))}.section-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:2px dashed rgba(164,143,114,.28)}.section-icon{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:18px;background:linear-gradient(180deg,#fff7df,#f5deb7);border:2px solid var(--line);box-shadow:0 3px 0 rgba(205,187,159,.95);font-size:1.35rem}.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title{margin:0;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:1.1rem;line-height:1.2;color:var(--soil)}.section-subtitle{margin-top:4px;font-size:.82rem;color:var(--soil-soft)}.section-count{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:32px;padding:0 10px;border-radius:999px;background:rgba(111,186,44,.14);border:2px solid rgba(111,186,44,.14);font-size:.8rem;font-weight:800;color:#5f962e}",
+        "        .category-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));align-items:start}.cat-panel{padding:16px;border-radius:30px;scroll-margin-top:104px;background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(240,232,216,.9))}.section-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:2px dashed rgba(164,143,114,.28)}.section-icon{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:18px;background:linear-gradient(180deg,#fff7df,#f5deb7);border:2px solid var(--line);box-shadow:0 3px 0 rgba(205,187,159,.95);font-size:1.35rem}.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title{margin:0;font-family:'Nunito','Noto Sans SC',sans-serif;font-size:1.1rem;line-height:1.2;color:var(--soil)}.section-subtitle{margin-top:4px;font-size:.82rem;color:var(--soil-soft)}.section-count{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:32px;padding:0 10px;border-radius:999px;background:rgba(111,186,44,.14);border:2px solid rgba(111,186,44,.14);font-size:.8rem;font-weight:800;color:#5f962e}",
         "        .news-list{display:flex;flex-direction:column;gap:12px}.news-card{display:flex;gap:12px;padding:14px;border-radius:22px;border:2px solid rgba(196,184,158,.92);background:linear-gradient(180deg, rgba(251,250,244,.98), rgba(248,248,240,.98));box-shadow:0 3px 0 rgba(196,184,158,.98);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;min-width:0}.news-card:hover{transform:translateY(-2px);border-color:rgba(25,200,185,.38);box-shadow:0 4px 0 rgba(25,200,185,.34),0 18px 32px -26px rgba(122,83,48,.38)}.news-rank{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border-radius:16px;background:linear-gradient(180deg,#fff3bf,#f7d768);border:2px solid rgba(164,143,114,.52);font-family:'Nunito',sans-serif;font-weight:800;color:var(--soil);box-shadow:0 3px 0 rgba(219,169,14,.45)}.news-body{min-width:0;flex:1}.meta-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.time-stamp{font-size:.78rem;color:var(--soil-soft)}.news-title{margin:10px 0 0;font-size:1rem;line-height:1.55;font-weight:800;color:var(--soil);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.news-title a{text-decoration:none;color:inherit}.en-subtitle{margin-top:6px;font-size:.75rem;color:var(--soil-soft);font-family:'M PLUS Rounded 1c',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.summary-compact{margin:8px 0 0;font-size:.86rem;line-height:1.7;color:#82664a;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.footer-panel{margin-top:28px;padding:18px 20px;border-radius:28px;text-align:center;color:var(--soil-soft);font-size:.88rem}.hidden-section{display:none!important}",
         "        @media (max-width:1200px){.score-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero-copy{white-space:normal}} @media (max-width:980px){.hero-grid{grid-template-columns:1fr}.hero-main{align-items:flex-start;flex-direction:column;gap:6px}.hero-copy{margin-left:0}.stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.score-grid{grid-template-columns:1fr}.hero-copy{white-space:normal}} @media (max-width:640px){.page-shell{padding-inline:12px}.stats-grid{grid-template-columns:1fr}.hero-panel{padding:12px}.hero-title{font-size:1.05rem}.hero-copy{font-size:.78rem}.news-card{padding:12px}.section-icon{width:46px;height:46px}.stat-card{min-height:unset}.topic-meta{grid-template-columns:1fr}}",
         "    </style>",
@@ -744,7 +792,7 @@ def build_html(categories):
         f'                    <div class="stat-card"><div class="stat-label">日期</div><div class="stat-value">{now_bj.strftime("%Y年%m月%d日")}</div></div>',
         f'                    <div class="stat-card"><div class="stat-label">新闻条数</div><div class="stat-value">{total_items} 条</div></div>',
         f'                    <div class="stat-card"><div class="stat-label">刷新时间</div><div class="stat-value">{now_bj.strftime("%Y-%m-%d %H:%M")}</div></div>',
-        "                </div></div><div class=\"hero-divider\"></div></header>",
+        '                </div></div><div class="hero-divider"></div></header>',
         '        <section class="score-panel"><div class="score-head"><h2 class="score-title">短视频选题评分</h2><div class="score-note">按爆款潜力从高到低</div></div><div class="score-grid">',
     ]
 
@@ -755,7 +803,7 @@ def build_html(categories):
 
     html_parts.extend(
         [
-            '</div></section>',
+            "</div></section>",
             '        <nav class="nav-shell"><div class="nav-track"><button onclick="filterCategory(\'all\', this)" class="cat-btn is-active">全部分类 <span class="cat-count">ALL</span></button>',
         ]
     )
@@ -765,12 +813,18 @@ def build_html(categories):
             f'<button onclick="filterCategory(\'{cat_data["id"]}\', this)" class="cat-btn">{cat_data["icon"]} {html.escape(category_labels.get(cat_name, cat_name))} <span class="cat-count">{len(cat_data["items"])}</span></button>'
         )
 
-    html_parts.append('</div></nav><main id="news-container"><div class="category-grid">')
+    html_parts.append(
+        '</div></nav><main id="news-container"><div class="category-grid">'
+    )
 
     for cat_name, cat_data in active_categories:
         items = cat_data["items"]
-        html_parts.append(f'<section id="{cat_data["id"]}" class="cat-section cat-panel">')
-        html_parts.append(f'<div class="section-head"><span class="section-icon">{cat_data["icon"]}</span><div class="news-body"><div class="section-title-row"><h2 class="section-title">{cat_name}</h2><span class="section-count">{len(items)} 条</span></div><div class="section-subtitle">精选动态</div></div></div><div class="news-list">')
+        html_parts.append(
+            f'<section id="{cat_data["id"]}" class="cat-section cat-panel">'
+        )
+        html_parts.append(
+            f'<div class="section-head"><span class="section-icon">{cat_data["icon"]}</span><div class="news-body"><div class="section-title-row"><h2 class="section-title">{cat_name}</h2><span class="section-count">{len(items)} 条</span></div><div class="section-subtitle">精选动态</div></div></div><div class="news-list">'
+        )
         for idx, item in enumerate(items, 1):
             summary = item["summary"]
             if summary.startswith("IT之家"):
