@@ -19,7 +19,7 @@ beijing_tz = pytz.timezone("Asia/Shanghai")
 now_bj = datetime.now(beijing_tz)
 cutoff = now_bj - timedelta(hours=24)
 translator = GoogleTranslator(source="auto", target="zh-CN")
-SITE_VERSION = "1.0.3"
+SITE_VERSION = "1.0.4"
 
 DEFAULT_OUTPUT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "site"
@@ -152,6 +152,14 @@ TITLE_NEGATIVE_KEYWORDS = {
     "geforce",
     "玩家",
     "游戏",
+    "8点1氪",
+    "点1氪",
+    "早报",
+    "晚报",
+    "日报",
+    "周报",
+    "汇总",
+    "热点导览",
     "suv",
     "轿跑",
     "新车",
@@ -159,11 +167,50 @@ TITLE_NEGATIVE_KEYWORDS = {
     "mg 07",
 }
 
-REQUIRE_EXPLICIT_AI_SOURCES = {"IT之家", "36Kr AI", "The Verge", "Ars Technica"}
+ROUNDUP_TITLE_KEYWORDS = {
+    "8点1氪",
+    "点1氪",
+    "早报",
+    "晚报",
+    "日报",
+    "周报",
+    "快讯汇总",
+    "要闻汇总",
+    "热点汇总",
+    "热点导览",
+}
+
+ROUNDUP_CONTENT_KEYWORDS = {
+    "今日热点导览",
+    "top3大新闻",
+    "top 3大新闻",
+    "大公司/大事件",
+    "大公司大事件",
+    "今日热点",
+    "热点导览",
+    "要闻汇总",
+    "热点汇总",
+}
+
+REQUIRE_EXPLICIT_AI_SOURCES = {
+    "IT之家",
+    "36Kr AI",
+    "The Verge",
+    "Ars Technica",
+    "TechCrunch AI",
+}
 
 SOURCE_TITLE_BLACKLIST = {
     "IT之家": {"suv", "轿跑", "dlss", "游戏", "首发", "新车", "玩家"},
-    "36Kr AI": {"盘前", "股价", "航班", "晚报", "收盘", "开盘"},
+    "36Kr AI": {"盘前", "股价", "航班", "晚报", "收盘", "开盘", "早报", "日报", "周报"},
+    "TechCrunch AI": {
+        "techcrunch mobility",
+        "techcrunch fintech",
+        "techcrunch daily",
+        "week in review",
+        "newsletter",
+        "podcast",
+    },
     "The Verge": {"gaming", "game", "dlss", "playstation", "xbox"},
     "Ars Technica": {"gaming", "game", "dlss", "gpu review"},
 }
@@ -344,9 +391,26 @@ def has_explicit_ai_signal_in_title(title):
     )
 
 
+def is_roundup_story(title, summary):
+    title_text = normalize_text(title)
+    content = normalize_text(title, summary)
+    if has_any(title_text, ROUNDUP_TITLE_KEYWORDS):
+        return True
+    roundup_hits = sum(
+        1 for keyword in ROUNDUP_CONTENT_KEYWORDS if keyword_matches(content, keyword)
+    )
+    if roundup_hits >= 2:
+        return True
+    if roundup_hits >= 1 and content.count("；") >= 2:
+        return True
+    return False
+
+
 def should_exclude_story(title, summary):
     title_text = normalize_text(title)
     content = normalize_text(title, summary)
+    if is_roundup_story(title, summary):
+        return True
     if has_any(title_text, TITLE_NEGATIVE_KEYWORDS):
         return True
     if has_any(content, NEGATIVE_KEYWORDS) and not has_any(
