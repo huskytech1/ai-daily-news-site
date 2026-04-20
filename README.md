@@ -2,7 +2,7 @@
 
 自动抓取并生成 AI 日报静态页面，适合接入 GitHub Actions + GitHub Pages。
 
-当前版本：`1.0.4`
+当前版本：`1.0.5`
 
 ## 自动更新
 
@@ -27,6 +27,7 @@ cp site/AI_Daily_News_*.html site/index.html
 - 主要抓取逻辑在 `scripts/main.py`
 - 已增强聚合稿过滤，默认拦截 `8点1氪`、`热点导览`、`日报/周报` 一类汇总内容
 - 已增强信源主题过滤，`TechCrunch AI` 这类高噪声源需标题具备明确 AI 信号才会入选
+- 页面正文改为宽屏优先多列并排，只有在视口变窄时才逐级转成更少列
 - 定时任务在 `.github/workflows/daily-update.yml`
 - 本地触发脚本在 `~/my_project_area/projects/trigger-ai-daily-news-site-workflow.sh`
 - 输出站点在 `site/`
